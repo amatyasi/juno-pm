@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Juno · lo-fi prototype</title>
+<style>
+  :root{
+    --ink:#141414;
+    --gray:#8f8f8f;
+    --line:#141414;
+    --paper:#ffffff;
+    --mono: ui-monospace, "SF Mono", "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:var(--mono);
+    color:var(--ink);
+    background:#fbfbfb;
+    /* graph-paper backdrop */
+    background-image:
+      linear-gradient(#ededed 1px, transparent 1px),
+      linear-gradient(90deg, #ededed 1px, transparent 1px);
+    background-size:22px 22px;
+    min-height:100vh;
+    padding:34px 20px 60px;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wm{
+    max-width:1180px;margin:0 auto 10px;display:flex;justify-content:space-between;
+    align-items:flex-end;gap:12px;
+  }
+  .wm h1{font-size:15px;margin:0;letter-spacing:.5px;text-transform:uppercase;}
+  .wm .tag{
+    border:2px solid var(--ink);padding:4px 8px;font-size:11px;text-transform:uppercase;
+    letter-spacing:1px;background:#fff;
+  }
+
+  /* ---------- browser window ---------- */
+  .chrome{
+    max-width:1180px;margin:0 auto;background:var(--paper);
+    border:2px solid var(--line);
+    box-shadow:9px 9px 0 var(--ink);
+  }
+  .chrome__tabstrip{
+    display:flex;align-items:center;gap:0;border-bottom:2px solid var(--line);
+    padding:7px 8px 0;min-height:40px;
+  }
+  .lights{display:flex;gap:7px;padding:0 10px 6px 4px;align-self:center;}
+  .lights span{width:12px;height:12px;border:2px solid var(--ink);border-radius:50%;display:block;}
+  .tab{
+    display:flex;align-items:center;gap:7px;border:2px solid var(--line);border-bottom:none;
+    background:#fff;padding:7px 12px;margin-right:6px;font-size:12px;cursor:pointer;
+    max-width:210px;position:relative;top:2px;color:var(--gray);
+  }
+  .tab .fav{width:16px;height:16px;border:1.5px solid var(--ink);display:flex;align-items:center;
+    justify-content:center;font-size:10px;line-height:1;flex:none;color:var(--ink);background:#fff;}
+  .tab .ttl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .tab .x{margin-left:4px;font-size:12px;color:var(--gray);}
+  .tab[aria-selected="true"]{color:var(--ink);font-weight:700;top:2px;
+    box-shadow:0 2px 0 #fff; z-index:3;}
+  .tab:hover{color:var(--ink);}
+  .tab:focus-visible{outline:3px solid var(--ink);outline-offset:2px;}
+  .newtab{border:2px solid var(--line);background:#fff;width:26px;height:26px;cursor:pointer;
+    font-size:15px;align-self:center;margin-bottom:4px;font-family:var(--mono);}
+
+  .chrome__bar{display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:2px solid var(--line);}
+  .navbtn{border:2px solid var(--line);background:#fff;width:28px;height:28px;font-size:13px;
+    cursor:pointer;font-family:var(--mono);flex:none;}
+  .navbtn:disabled{color:#cfcfcf;}
+  .omni{flex:1;border:2px solid var(--line);background:#fff;display:flex;align-items:center;
+    gap:8px;padding:5px 10px;font-size:12px;min-width:0;}
+  .omni .lock{width:14px;height:12px;border:1.5px solid var(--ink);position:relative;flex:none;}
+  .omni .lock::before{content:"";position:absolute;left:3px;top:-5px;width:6px;height:6px;
+    border:1.5px solid var(--ink);border-bottom:none;border-radius:4px 4px 0 0;}
+  .omni .url{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .omni .url b{font-weight:700;}
+  .barbox{border:2px solid var(--line);width:28px;height:28px;flex:none;position:relative;background:#fff;}
+  .barbox::before,.barbox::after{content:"";position:absolute;inset:3px;}
+  .barbox.cross::before{border-top:1.5px solid var(--ink);transform:rotate(45deg);top:50%;left:0;right:0;}
+  .barbox.cross::after{border-top:1.5px solid var(--ink);transform:rotate(-45deg);top:50%;left:0;right:0;}
+
+  .viewport{height:72vh;min-height:520px;overflow:auto;background:#fff;}
+  .view{display:none;min-height:100%;}
+  .view.active{display:block;}
+
+  /* ---------- generic lo-fi bits ---------- */
+  .pill{border:2px solid var(--ink);background:#fff;font-family:var(--mono);font-size:11px;
+    padding:3px 8px;cursor:pointer;text-transform:uppercase;letter-spacing:.5px;}
+  .pill:hover,.pill:focus-visible{background:var(--ink);color:#fff;outline:none;}
+  .pill[aria-pressed="true"]{background:var(--ink);color:#fff;}
+  .count{display:inline-flex;align-items:center;gap:5px;border:2px solid var(--ink);background:#fff;
+    font-family:var(--mono);font-size:12px;padding:1px 7px;cursor:pointer;font-weight:700;}
+  .count:hover,.count:focus-visible{background:var(--ink);color:#fff;outline:none;}
+  .icp{border:1.5px solid var(--ink);font-size:9px;padding:0 4px;letter-spacing:.5px;vertical-align:middle;}
+  .crossav{border:2px solid var(--ink);background:#fff;position:relative;flex:none;}
+  .crossav span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    font-size:11px;font-weight:700;background:#fff;}
+
+  /* ---------- SLACK ---------- */
+  .slack{display:flex;height:100%;}
+  .slack__rail{width:60px;border-right:2px solid var(--line);display:flex;flex-direction:column;
+    align-items:center;padding:12px 0;gap:12px;flex:none;}
+  .slack__rail .ws{width:34px;height:34px;border:2px solid var(--ink);display:flex;align-items:center;
+    justify-content:center;font-weight:700;font-size:13px;}
+  .slack__rail .add{width:30px;height:30px;border:2px dashed var(--ink);display:flex;align-items:center;
+    justify-content:center;font-size:16px;color:var(--gray);}
+  .slack__chan{width:220px;border-right:2px solid var(--line);flex:none;overflow:auto;}
+  .slack__chan h3{font-size:13px;padding:14px 14px 8px;margin:0;border-bottom:2px solid var(--line);
+    display:flex;justify-content:space-between;align-items:center;}
+  .slack__chan .grp{font-size:11px;color:var(--gray);padding:12px 14px 4px;text-transform:uppercase;letter-spacing:1px;}
+  .slack__chan a{display:block;padding:4px 14px;font-size:13px;color:var(--ink);text-decoration:none;}
+  .slack__chan a .h{color:var(--gray);}
+  .slack__chan a.on{background:var(--ink);color:#fff;}
+  .slack__chan a.on .h{color:#fff;}
+  .slack__chan a:hover:not(.on){text-decoration:underline;}
+  .slack__main{flex:1;display:flex;flex-direction:column;min-width:0;overflow:auto;}
+  .slack__head{border-bottom:2px solid var(--line);padding:12px 18px;}
+  .slack__head b{font-size:15px;}
+  .slack__head p{margin:3px 0 0;font-size:12px;color:var(--gray);}
+  .msg{display:flex;gap:12px;padding:18px;}
+  .msg .av{width:40px;height:40px;}
+  .msg .av span{font-size:9px;letter-spacing:.5px;}
+  .msg__body{min-width:0;flex:1;}
+  .msg__who{display:flex;align-items:center;gap:8px;margin-bottom:2px;}
+  .msg__who b{font-size:14px;}
+  .msg__who .app{border:1.5px solid var(--ink);font-size:9px;padding:0 4px;letter-spacing:1px;}
+  .msg__who .t{font-size:11px;color:var(--gray);}
+  .digest{border:2px solid var(--line);margin-top:6px;max-width:720px;}
+  .digest__top{padding:12px 14px;border-bottom:2px solid var(--line);}
+  .digest__top b{font-size:14px;}
+  .digest__top .meta{font-size:11px;color:var(--gray);margin-top:4px;}
+  .sect{padding:12px 14px;border-bottom:2px dashed var(--line);}
+  .sect:last-child{border-bottom:none;}
+  .sect h4{margin:0 0 10px;font-size:12px;text-transform:uppercase;letter-spacing:1px;}
+  .item{display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-top:1px dotted #bdbdbd;}
+  .item:first-of-type{border-top:none;}
+  .item .ico{flex:none;width:20px;text-align:center;}
+  .item .mn{flex:1;min-width:0;font-size:12.5px;line-height:1.5;}
+  .item .mn .q{color:var(--gray);}
+  .item .mn .sub{color:var(--gray);font-size:11px;}
+  .item .act{flex:none;display:flex;flex-direction:column;gap:5px;align-items:flex-end;}
+
+  /* ---------- DASHBOARD ---------- */
+  .dash{padding:0;}
+  .dash__top{display:flex;align-items:center;justify-content:space-between;gap:12px;
+    border-bottom:2px solid var(--line);padding:12px 18px;}
+  .brand{display:flex;align-items:center;gap:10px;}
+  .brand .mk{width:30px;height:30px;}
+  .brand b{font-size:16px;letter-spacing:1px;}
+  .brand .nav{display:flex;gap:14px;margin-left:14px;font-size:12px;color:var(--gray);}
+  .brand .nav .on{color:var(--ink);border-bottom:2px solid var(--ink);}
+  .dash__body{padding:18px;}
+  .controls{display:flex;flex-wrap:wrap;gap:16px;align-items:center;margin-bottom:16px;}
+  .ctl{display:flex;gap:6px;align-items:center;}
+  .ctl .lbl{font-size:11px;color:var(--gray);text-transform:uppercase;letter-spacing:1px;margin-right:2px;}
+  .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px;}
+  .tile{border:2px solid var(--line);padding:12px 14px;box-shadow:4px 4px 0 var(--ink);}
+  .tile .n{font-size:30px;font-weight:700;line-height:1;}
+  .tile .l{font-size:11px;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;margin-top:8px;}
+  .tile .d{font-size:11px;margin-top:4px;}
+  .card{border:2px solid var(--line);padding:14px 16px 10px;}
+  .card h3{margin:0 0 2px;font-size:13px;text-transform:uppercase;letter-spacing:1px;}
+  .card .cap{font-size:11px;color:var(--gray);margin-bottom:14px;}
+  .chartwrap{display:flex;gap:12px;}
+  .yax{display:flex;flex-direction:column;justify-content:space-between;font-size:10px;color:var(--gray);
+    height:200px;text-align:right;width:30px;padding-bottom:22px;}
+  .plot{flex:1;height:200px;border-left:2px solid var(--ink);border-bottom:2px solid var(--ink);
+    display:flex;align-items:flex-end;justify-content:space-around;position:relative;padding:0 6px;
+    background-image:repeating-linear-gradient(to top, transparent 0 49px, #e4e4e4 49px 50px);}
+  .grp{display:flex;align-items:flex-end;gap:3px;height:100%;flex:1;justify-content:center;}
+  .bar{width:13px;border:2px solid var(--ink);border-bottom:none;align-self:flex-end;transition:height .18s;}
+  .bar.bugs{background:var(--ink);}
+  .bar.opps{background:#fff;}
+  .bar.ideas{background:repeating-linear-gradient(45deg,var(--ink) 0 1.5px,#fff 1.5px 5px);}
+  .bar.recs{background:#cfcfcf;}
+  .xax{display:flex;justify-content:space-around;font-size:10px;color:var(--gray);
+    margin:6px 0 0 42px;padding:0 6px;}
+  .xax span{flex:1;text-align:center;}
+  .legend{display:flex;flex-wrap:wrap;gap:16px;margin-top:14px;padding-top:12px;border-top:2px dashed var(--line);}
+  .lg{display:flex;align-items:center;gap:7px;font-size:12px;cursor:pointer;user-select:none;}
+  .lg .sw{width:16px;height:16px;border:2px solid var(--ink);flex:none;}
+  .lg .sw.bugs{background:var(--ink);}
+  .lg .sw.opps{background:#fff;}
+  .lg .sw.ideas{background:repeating-linear-gradient(45deg,var(--ink) 0 1.5px,#fff 1.5px 5px);}
+  .lg .sw.recs{background:#cfcfcf;}
+  .lg.off{opacity:.4;text-decoration:line-through;}
+  .lg .v{font-weight:700;}
+
+  .themes{margin-top:20px;}
+  table.tbl{width:100%;border-collapse:collapse;font-size:12px;}
+  table.tbl th,table.tbl td{border:1.5px solid var(--ink);padding:7px 9px;text-align:left;vertical-align:top;}
+  table.tbl th{text-transform:uppercase;letter-spacing:.5px;font-size:10.5px;background:#f3f3f3;}
+  table.tbl tr.clickable{cursor:pointer;}
+  table.tbl tr.clickable:hover td{background:var(--ink);color:#fff;}
+  table.tbl tr.clickable:hover td .icp{border-color:#fff;color:#fff;}
+  .flag{font-size:10px;border:1.5px solid var(--ink);padding:0 4px;letter-spacing:.5px;}
+
+  /* ---------- JIRA ---------- */
+  .jira{display:flex;flex-direction:column;height:100%;}
+  .jira__crumb{border-bottom:2px solid var(--line);padding:9px 18px;font-size:11px;color:var(--gray);}
+  .jira__crumb b{color:var(--ink);}
+  .jira__wrap{display:flex;gap:0;flex:1;min-height:0;}
+  .jira__main{flex:1;padding:16px 20px;overflow:auto;min-width:0;}
+  .jira__side{width:290px;border-left:2px solid var(--line);padding:16px 16px;flex:none;overflow:auto;}
+  .jira__type{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--gray);text-transform:uppercase;letter-spacing:1px;}
+  .jira__type .k{border:1.5px solid var(--ink);color:var(--ink);padding:0 5px;}
+  .jira h2{font-size:20px;margin:8px 0 14px;line-height:1.25;}
+  .jbtns{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
+  .lozenge{border:2px solid var(--ink);padding:3px 10px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;}
+  .lozenge.done{background:var(--ink);color:#fff;}
+  .banner{border:2px solid var(--ink);box-shadow:4px 4px 0 var(--ink);padding:11px 13px;margin-bottom:18px;
+    display:flex;gap:10px;align-items:flex-start;}
+  .banner .bi{font-weight:700;flex:none;}
+  .banner .bt{font-size:12.5px;line-height:1.5;}
+  .fieldblk{margin-bottom:20px;}
+  .fieldblk h4{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--gray);
+    margin:0 0 8px;border-bottom:2px solid var(--line);padding-bottom:5px;}
+  .fieldblk p{font-size:13px;line-height:1.6;margin:0 0 10px;}
+  .enrich{border:2px dashed var(--ink);padding:12px 14px;}
+  .enrich .et{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+  .enrich .et .mk{width:22px;height:22px;}
+  .enrich .et b{font-size:12px;text-transform:uppercase;letter-spacing:1px;}
+  .kv{display:flex;gap:10px;font-size:12.5px;padding:5px 0;border-top:1px dotted #bdbdbd;}
+  .kv:first-of-type{border-top:none;}
+  .kv .k{width:120px;color:var(--gray);flex:none;}
+  .kv .v{flex:1;}
+  .quote{border-left:3px solid var(--ink);padding:3px 0 3px 10px;margin:6px 0;font-size:12px;color:#333;}
+  .quote .src{color:var(--gray);font-size:11px;}
+  .custlist{display:flex;flex-wrap:wrap;gap:6px;}
+  .custlist a{border:1.5px solid var(--ink);padding:1px 6px;font-size:11.5px;text-decoration:none;color:var(--ink);background:#fff;}
+  .custlist a:hover{background:var(--ink);color:#fff;}
+  .custlist a:hover .icp{border-color:#fff;color:#fff;}
+  .sfield{margin-bottom:14px;}
+  .sfield .k{font-size:10.5px;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;}
+  .sfield .v{font-size:13px;}
+  .ice{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:4px 0 2px;}
+  .ice .c{border:2px solid var(--ink);padding:7px 4px;text-align:center;}
+  .ice .c .n{font-size:18px;font-weight:700;}
+  .ice .c .l{font-size:9px;color:var(--gray);text-transform:uppercase;}
+
+  @media (prefers-reduced-motion: reduce){*{transition:none !important;}}
+  @media (max-width:720px){
+    .slack__chan{display:none;}
+    .jira__side{display:none;}
+    .tiles{grid-template-columns:repeat(2,1fr);}
+    .tab{max-width:120px;}
+  }
+</style>
+</head>
+<body>
+
+  <div class="wm">
+    <h1>Juno — weekly feedback triage</h1>
+    <div class="tag">lo-fi wireframe · not final UI</div>
+  </div>
+
+  <div class="chrome">
+    <!-- tab strip -->
+    <div class="chrome__tabstrip" role="tablist" aria-label="Browser tabs">
+      <div class="lights" aria-hidden="true"><span></span><span></span><span></span></div>
+      <button class="tab" role="tab" data-tab="slack" aria-selected="true">
+        <span class="fav">#</span><span class="ttl">Capybara Cloud · Slack</span><span class="x">×</span>
+      </button>
+      <button class="tab" role="tab" data-tab="dash" aria-selected="false">
+        <span class="fav">☾</span><span class="ttl">Juno Dashboard</span><span class="x">×</span>
+      </button>
+      <button class="tab" role="tab" data-tab="bug" aria-selected="false">
+        <span class="fav">J</span><span class="ttl">CAP-3310 · Jira</span><span class="x">×</span>
+      </button>
+      <button class="tab" role="tab" data-tab="idea" aria-selected="false">
+        <span class="fav">J</span><span class="ttl">CAP-412 · Jira</span><span class="x">×</span>
+      </button>
+      <button class="newtab" aria-label="New tab">+</button>
+    </div>
+
+    <!-- toolbar -->
+    <div class="chrome__bar">
+      <button class="navbtn" aria-label="Back">←</button>
+      <button class="navbtn" aria-label="Forward" disabled>→</button>
+      <button class="navbtn" aria-label="Reload">⟳</button>
+      <div class="omni">
+        <span class="lock" aria-hidden="true"></span>
+        <span class="url" id="omni-url"><b>app.slack.com</b>/client/T0CAP/C0FEED</span>
+      </div>
+      <div class="barbox cross" aria-hidden="true"></div>
+      <div class="barbox cross" aria-hidden="true"></div>
+    </div>
+
+    <!-- viewport -->
+    <div class="viewport">
+
+      <!-- ============ SLACK ============ -->
+      <section class="view active" id="view-slack" role="tabpanel">
+        <div class="slack">
+          <div class="slack__rail">
+            <div class="ws">CC</div>
+            <div class="add">+</div>
+          </div>
+          <nav class="slack__chan">
+            <h3>Capybara Cloud <span class="h">▾</span></h3>
+            <div class="grp">Channels</div>
+            <a href="#" class="on"><span class="h">#</span> product-feedback</a>
+            <a href="#"><span class="h">#</span> eng-triage</a>
+            <a href="#"><span class="h">#</span> general</a>
+            <a href="#"><span class="h">#</span> random</a>
+            <div class="grp">Apps</div>
+            <a href="#"><span class="h">◻</span> Juno</a>
+          </nav>
+          <div class="slack__main">
+            <div class="slack__head">
+              <b># product-feedback</b>
+              <p>Juno posts the weekly digest here every Monday 9:00am.</p>
+            </div>
+            <div class="msg">
+              <div class="av crossav" style="width:40px;height:40px;"><span>JUNO</span></div>
+              <div class="msg__body">
+                <div class="msg__who">
+                  <b>Juno</b><span class="app">APP</span><span class="t">Mon 9:00 AM</span>
+                </div>
+                <div class="digest">
+                  <div class="digest__top">
+                    <b>Weekly feedback digest · week of Oct 13</b>
+                    <div class="meta">106 data points · 7 Client Connect calls · 44 bug tickets · 61 customer quotes &nbsp;|&nbsp; <a href="#" data-go="dash" style="color:inherit;">open dashboard →</a></div>
+                  </div>
+
+                  <div class="sect">
+                    <h4>▸ New issues this week</h4>
+                    <div class="item">
+                      <div class="ico">🐞</div>
+                      <div class="mn">
+                        <b>Export fails for workspaces over 10k rows</b><br>
+                        <span class="q">"the export just spins and never finishes"</span>
+                        <div class="sub">Northwind <span class="icp">ICP</span>, Altura Finance +4 · no confident Jira match</div>
+                      </div>
+                      <div class="act"><span class="count" data-go="dash">6 ✕</span><span class="pill" data-go="dash">Create ticket</span></div>
+                    </div>
+                    <div class="item">
+                      <div class="ico">🐞</div>
+                      <div class="mn">
+                        <b>SSO login drops on token refresh</b><br>
+                        <span class="q">"we get logged out every hour, unusable for our admins"</span>
+                        <div class="sub">Meridian Health <span class="icp">ICP</span> +9 · CAP-3291</div>
+                      </div>
+                      <div class="act"><span class="count" data-go="bug">11 ✕</span><span class="pill" data-go="bug">Open in Jira</span></div>
+                    </div>
+                  </div>
+
+                  <div class="sect">
+                    <h4>▸ Rising opportunities</h4>
+                    <div class="item">
+                      <div class="ico">💡</div>
+                      <div class="mn">
+                        <b>Bulk export of audit logs</b> &nbsp;▲ trending<br>
+                        <span class="sub">ICE 19 (proposed) · see “Revisit” below · click the count to drill in</span>
+                      </div>
+                      <div class="act"><span class="count" data-go="idea">34 ✕</span><span class="pill" data-go="idea">Open CAP-412</span></div>
+                    </div>
+                    <div class="item">
+                      <div class="ico">💡</div>
+                      <div class="mn">
+                        <b>Saved filter sharing between teammates</b> &nbsp;▲ trending<br>
+                        <span class="sub">ICE 15 · Brightside Retail, Vantage Logistics +6</span>
+                      </div>
+                      <div class="act"><span class="count" data-go="dash">18 ✕</span><span class="pill" data-go="dash">View</span></div>
+                    </div>
+                  </div>
+
+                  <div class="sect">
+                    <h4>▸ Revisit these</h4>
+                    <div class="item">
+                      <div class="ico">♻️</div>
+                      <div class="mn">
+                        <b>Bulk export of audit logs</b> — declined at ICE 14 on Apr 10<br>
+                        <span class="sub">What changed: +9 new mentions incl. 2 ICP accounts → proposed ICE <b>19</b></span>
+                      </div>
+                      <div class="act"><span class="pill" data-go="idea">Re-score · CAP-412</span></div>
+                    </div>
+                    <div class="item">
+                      <div class="ico">⚠️</div>
+                      <div class="mn">
+                        <b>Report scheduler drops the timezone</b> — CAP-3310 marked Done Aug 22<br>
+                        <span class="sub">What changed: 4 new matched mentions → <b>possible regression</b></span>
+                      </div>
+                      <div class="act"><span class="pill" data-go="bug">Open CAP-3310</span></div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ DASHBOARD ============ -->
+      <section class="view" id="view-dash" role="tabpanel">
+        <div class="dash">
+          <div class="dash__top">
+            <div class="brand">
+              <div class="mk crossav" style="width:30px;height:30px;"><span>☾</span></div>
+              <b>JUNO</b>
+              <div class="nav"><span class="on">Overview</span><span>Themes</span><span>Tickets</span><span>Settings</span></div>
+            </div>
+            <div style="font-size:12px;color:var(--gray);">Capybara Cloud · product org</div>
+          </div>
+          <div class="dash__body">
+
+            <div class="controls">
+              <div class="ctl">
+                <span class="lbl">View</span>
+                <button class="pill" data-view="weekly" aria-pressed="true">Weekly</button>
+                <button class="pill" data-view="daily" aria-pressed="false">Daily</button>
+              </div>
+              <div class="ctl">
+                <span class="lbl">Source</span>
+                <button class="pill src" data-src="all" aria-pressed="true">All</button>
+                <button class="pill src" data-src="calls" aria-pressed="false">Calls</button>
+                <button class="pill src" data-src="support" aria-pressed="false">Support</button>
+                <button class="pill src" data-src="csatnps" aria-pressed="false">CSAT &amp; NPS</button>
+                <button class="pill src" data-src="chats" aria-pressed="false">Chats</button>
+              </div>
+            </div>
+
+            <div class="tiles" id="tiles"><!-- rendered --></div>
+
+            <div class="card">
+              <h3>Mentions by category</h3>
+              <div class="cap" id="chart-cap">Last 6 weeks · all sources</div>
+              <div class="chartwrap">
+                <div class="yax" id="yax"></div>
+                <div class="plot" id="plot"></div>
+              </div>
+              <div class="xax" id="xax"></div>
+              <div class="legend" id="legend"></div>
+            </div>
+
+            <div class="themes card" style="margin-top:20px;">
+              <h3>Top themes this week</h3>
+              <div class="cap">Click a linked theme to open its Jira ticket.</div>
+              <table class="tbl">
+                <thead>
+                  <tr><th>Theme</th><th>Type</th><th>Mentions</th><th>Customers</th><th>Jira</th><th>ICE</th></tr>
+                </thead>
+                <tbody>
+                  <tr class="clickable" data-go="idea">
+                    <td>Bulk export of audit logs</td><td>Opportunity</td><td>34 ▲</td>
+                    <td>Northwind <span class="icp">ICP</span> +10</td><td>CAP-412</td><td>19 ⟲</td>
+                  </tr>
+                  <tr class="clickable" data-go="bug">
+                    <td>Report scheduler drops timezone <span class="flag">REGRESSION</span></td><td>Bug</td><td>4 new</td>
+                    <td>Meridian <span class="icp">ICP</span> +3</td><td>CAP-3310</td><td>—</td>
+                  </tr>
+                  <tr>
+                    <td>SSO login drops on refresh</td><td>Bug</td><td>11</td>
+                    <td>Meridian <span class="icp">ICP</span> +9</td><td>CAP-3291</td><td>—</td>
+                  </tr>
+                  <tr>
+                    <td>Saved filter sharing</td><td>Opportunity</td><td>18 ▲</td>
+                    <td>Brightside +6</td><td>CAP-418</td><td>15</td>
+                  </tr>
+                  <tr>
+                    <td>Export fails over 10k rows</td><td>Bug</td><td>6</td>
+                    <td>Northwind <span class="icp">ICP</span> +4</td><td>candidate</td><td>—</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ JIRA · BUG ============ -->
+      <section class="view" id="view-bug" role="tabpanel">
+        <div class="jira">
+          <div class="jira__crumb">Projects / <b>Capybara Platform</b> / <b>CAP-3310</b></div>
+          <div class="jira__wrap">
+            <div class="jira__main">
+              <div class="jira__type"><span class="k">BUG</span> CAP-3310</div>
+              <h2>Report scheduler drops the timezone on recurring exports</h2>
+              <div class="jbtns">
+                <span class="lozenge done">Done</span>
+                <span class="pill">Reopen</span>
+                <span class="pill">Assign</span>
+                <span class="pill">Add to triage</span>
+              </div>
+
+              <div class="banner">
+                <span class="bi">⚠ POSSIBLE REGRESSION</span>
+                <span class="bt">Flagged by Juno. Closed as <b>Done</b> on Aug 22, but <b>4 new matched mentions</b> have arrived since (last: Oct 11). Recommend reopening and routing to eng triage.</span>
+              </div>
+
+              <div class="fieldblk">
+                <h4>Description</h4>
+                <p>Recurring scheduled exports render timestamps in UTC instead of the workspace timezone after the Oct release. Customers on daily audit exports see every row off by their local offset.</p>
+              </div>
+
+              <div class="fieldblk">
+                <h4>Juno enrichment</h4>
+                <div class="enrich">
+                  <div class="et"><div class="mk crossav" style="width:22px;height:22px;"><span>☾</span></div><b>Added by Juno · Oct 13</b></div>
+                  <div class="kv"><div class="k">Frequency</div><div class="v"><b>4 new</b> mentions this week · 12 all-time</div></div>
+                  <div class="kv"><div class="k">Trend</div><div class="v">returning after close (0 → 4 in 3 weeks)</div></div>
+                  <div class="kv"><div class="k">Customers (4)</div><div class="v">
+                    <div class="custlist">
+                      <a href="#">Meridian Health <span class="icp">ICP</span></a>
+                      <a href="#">Vantage Logistics</a>
+                      <a href="#">Pelican Pay</a>
+                      <a href="#">Harbor Point</a>
+                    </div>
+                  </div></div>
+                  <div class="kv"><div class="k">Evidence</div><div class="v">
+                    <div class="quote">"all my scheduled exports are an hour behind since last week"<span class="src"> — TICK-5188, Meridian Health</span></div>
+                    <div class="quote">"timezone is wrong again on the nightly report"<span class="src"> — CHAT-9043, Vantage Logistics</span></div>
+                  </div></div>
+                </div>
+              </div>
+            </div>
+            <aside class="jira__side">
+              <div class="sfield"><div class="k">Status</div><div class="v"><span class="lozenge done">Done</span> (reopen candidate)</div></div>
+              <div class="sfield"><div class="k">Assignee</div><div class="v">— unassigned</div></div>
+              <div class="sfield"><div class="k">Reporter</div><div class="v">Juno (auto)</div></div>
+              <div class="sfield"><div class="k">Priority</div><div class="v">High</div></div>
+              <div class="sfield"><div class="k">Components</div><div class="v">Scheduler, Exports</div></div>
+              <div class="sfield"><div class="k">Labels</div><div class="v">regression · timezone</div></div>
+              <div class="sfield"><div class="k">Customer mentions</div><div class="v"><b>12</b> all-time</div></div>
+              <div class="sfield"><div class="k">Affected customers</div><div class="v"><b>4</b> (1 ICP)</div></div>
+              <div class="sfield"><div class="k">Closed</div><div class="v">Aug 22, 2026</div></div>
+              <div class="sfield"><div class="k">Last mention</div><div class="v">Oct 11, 2026</div></div>
+            </aside>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ JIRA · IDEA ============ -->
+      <section class="view" id="view-idea" role="tabpanel">
+        <div class="jira">
+          <div class="jira__crumb">Projects / <b>Capybara Discovery</b> / <b>CAP-412</b></div>
+          <div class="jira__wrap">
+            <div class="jira__main">
+              <div class="jira__type"><span class="k">IDEA</span> CAP-412</div>
+              <h2>Bulk export of audit logs</h2>
+              <div class="jbtns">
+                <span class="lozenge">Needs re-scoring</span>
+                <span class="pill">Re-score ICE</span>
+                <span class="pill">Promote to story</span>
+              </div>
+
+              <div class="banner">
+                <span class="bi">♻ REVISIT</span>
+                <span class="bt">Declined at <b>ICE 14</b> on Apr 10. Juno surfaced it again: new evidence pushes the proposed score to <b>19</b>.</span>
+              </div>
+
+              <div class="fieldblk">
+                <h4>Description · generated by Juno</h4>
+                <div class="enrich">
+                  <div class="et"><div class="mk crossav" style="width:22px;height:22px;"><span>☾</span></div><b>Summary · Oct 13</b></div>
+                  <p style="font-size:13px;line-height:1.6;margin:0;">This opportunity has been raised by <b>11 distinct customers</b> across <b>7 Client Connect calls</b> and <b>23 support &amp; feedback items</b> over the past quarter. <b>2 are ICP accounts</b> (Northwind, Meridian Health), and the ask aligns with the retention strategy. It was ICE-scored 14 and declined on Apr 10, 2026; since then mentions have grown from 3 to 34, which raises the proposed score to 19. Recommend re-scoring at the next prioritization review.</p>
+                </div>
+              </div>
+
+              <div class="fieldblk">
+                <h4>ICE · prior → proposed</h4>
+                <div class="ice">
+                  <div class="c"><div class="n">8</div><div class="l">Impact</div></div>
+                  <div class="c"><div class="n">8</div><div class="l">Confidence</div></div>
+                  <div class="c"><div class="n">?</div><div class="l">Ease (eng)</div></div>
+                  <div class="c"><div class="n">19</div><div class="l">Total ▲14</div></div>
+                </div>
+                <p style="font-size:11px;color:var(--gray);margin:8px 0 0;">Ease left unscored — build effort is an engineering call, flagged for eng.</p>
+              </div>
+
+              <div class="fieldblk">
+                <h4>Evidence</h4>
+                <div class="quote">"we need to pull a full audit log for our security review, one quarter at a time is painful"<span class="src"> — CALL-2026-10-02, Northwind (ICP)</span></div>
+                <div class="quote">"an export-all button for audit logs would save us hours"<span class="src"> — TICK-5120, Brightside Retail</span></div>
+              </div>
+            </div>
+            <aside class="jira__side">
+              <div class="sfield"><div class="k">Status</div><div class="v"><span class="lozenge">Needs re-scoring</span></div></div>
+              <div class="sfield"><div class="k">Type</div><div class="v">Idea / Opportunity</div></div>
+              <div class="sfield"><div class="k">Reach</div><div class="v"><b>11</b> customers · 2 ICP</div></div>
+              <div class="sfield"><div class="k">Mentions</div><div class="v">34 this quarter (was 3)</div></div>
+              <div class="sfield"><div class="k">Strategy fit</div><div class="v">High — retention</div></div>
+              <div class="sfield"><div class="k">Prior decision</div><div class="v">Declined · Apr 10, 2026</div></div>
+              <div class="sfield"><div class="k">Customers</div><div class="v">
+                <div class="custlist">
+                  <a href="#">Northwind <span class="icp">ICP</span></a>
+                  <a href="#">Meridian <span class="icp">ICP</span></a>
+                  <a href="#">Brightside</a>
+                  <a href="#">Solstice</a>
+                  <a href="#">+7</a>
+                </div>
+              </div></div>
+            </aside>
+          </div>
+        </div>
+      </section>
+
+    </div><!-- /viewport -->
+  </div><!-- /chrome -->
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------- tab / url wiring ----------
+  var urls = {
+    slack: '<b>app.slack.com</b>/client/T0CAP/C0FEED',
+    dash:  '<b>juno.capybara.cloud</b>/overview',
+    bug:   '<b>capybara.atlassian.net</b>/browse/CAP-3310',
+    idea:  '<b>capybara.atlassian.net</b>/browse/CAP-412'
+  };
+  var tabs = Array.prototype.slice.call(document.querySelectorAll('.tab'));
+  var omni = document.getElementById('omni-url');
+
+  function switchTab(name){
+    tabs.forEach(function(t){ t.setAttribute('aria-selected', t.dataset.tab === name ? 'true':'false'); });
+    document.querySelectorAll('.view').forEach(function(v){ v.classList.remove('active'); });
+    var view = document.getElementById('view-' + name);
+    if(view) view.classList.add('active');
+    if(urls[name]) omni.innerHTML = urls[name];
+    var vp = document.querySelector('.viewport'); if(vp) vp.scrollTop = 0;
+    if(name === 'dash') render();
+  }
+  tabs.forEach(function(t){ t.addEventListener('click', function(){ switchTab(t.dataset.tab); }); });
+
+  // any element with data-go drills into a tab
+  document.addEventListener('click', function(e){
+    var el = e.target.closest('[data-go]');
+    if(el){ e.preventDefault(); switchTab(el.getAttribute('data-go')); }
+  });
+
+  // ---------- dashboard data ----------
+  var data = {
+    weekly: {
+      cap: 'Last 6 weeks',
+      labels: ['Sep 8','Sep 15','Sep 22','Sep 29','Oct 6','Oct 13'],
+      bugs:[38,42,31,47,51,44], opps:[12,15,18,22,29,34], ideas:[9,11,8,14,12,17], recs:[5,6,7,9,8,11],
+      calls:7, quotes:61, periodLabel:'This week'
+    },
+    daily: {
+      cap: 'Last 7 days',
+      labels:['Oct 7','Oct 8','Oct 9','Oct 10','Oct 11','Oct 12','Oct 13'],
+      bugs:[8,6,9,5,7,4,5], opps:[5,7,4,6,5,3,4], ideas:[3,2,4,2,1,2,3], recs:[2,1,2,3,1,1,1],
+      calls:2, quotes:9, periodLabel:'Today'
+    }
+  };
+  // share of each category's mentions by source
+  var share = {
+    bugs:  {calls:.15, support:.50, csatnps:.05, chats:.30},
+    opps:  {calls:.40, support:.20, csatnps:.20, chats:.20},
+    ideas: {calls:.35, support:.20, csatnps:.30, chats:.15},
+    recs:  {calls:.30, support:.10, csatnps:.50, chats:.10}
+  };
+  var cats = [
+    {key:'bugs',  name:'Bugs'},
+    {key:'opps',  name:'Opportunities'},
+    {key:'ideas', name:'Ideas'},
+    {key:'recs',  name:'Recommendations'}
+  ];
+  var state = { view:'weekly', src:'all', hidden:{} };
+
+  function factor(catKey){ return state.src === 'all' ? 1 : (share[catKey][state.src] || 0); }
+  function val(catKey, i){ return Math.round(data[state.view][catKey][i] * factor(catKey)); }
+
+  function maxVal(){ // scale on unfiltered current view so source filter reads as "fewer"
+    var d = data[state.view], m = 0;
+    cats.forEach(function(c){ d[c.key].forEach(function(v){ if(v>m) m=v; }); });
+    return m;
+  }
+
+  function render(){
+    var d = data[state.view];
+    var n = d.labels.length, last = n-1, mx = maxVal();
+
+    // chart cap
+    var srcName = {all:'all sources',calls:'Client Connect calls',support:'support',csatnps:'CSAT & NPS',chats:'chats'}[state.src];
+    document.getElementById('chart-cap').textContent = d.cap + ' · ' + srcName;
+
+    // y axis
+    document.getElementById('yax').innerHTML =
+      '<span>'+mx+'</span><span>'+Math.round(mx/2)+'</span><span>0</span>';
+
+    // plot
+    var plot = document.getElementById('plot'); plot.innerHTML = '';
+    for(var i=0;i<n;i++){
+      var grp = document.createElement('div'); grp.className='grp';
+      cats.forEach(function(c){
+        if(state.hidden[c.key]) return;
+        var v = val(c.key, i);
+        var bar = document.createElement('div');
+        bar.className = 'bar ' + c.key;
+        bar.style.height = (mx ? (v/mx*100) : 0) + '%';
+        bar.title = c.name + ' · ' + d.labels[i] + ' · ' + v + ' mentions';
+        grp.appendChild(bar);
+      });
+      plot.appendChild(grp);
+    }
+
+    // x axis
+    document.getElementById('xax').innerHTML = d.labels.map(function(l){return '<span>'+l+'</span>';}).join('');
+
+    // legend (with latest value)
+    var legend = document.getElementById('legend'); legend.innerHTML='';
+    cats.forEach(function(c){
+      var lg = document.createElement('div');
+      lg.className = 'lg' + (state.hidden[c.key] ? ' off':'');
+      lg.innerHTML = '<span class="sw '+c.key+'"></span>'+c.name+' <span class="v">'+val(c.key,last)+'</span>';
+      lg.tabIndex = 0; lg.setAttribute('role','button');
+      lg.addEventListener('click', function(){ state.hidden[c.key] = !state.hidden[c.key]; render(); });
+      lg.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); state.hidden[c.key]=!state.hidden[c.key]; render(); }});
+      legend.appendChild(lg);
+    });
+
+    // tiles (latest period)
+    var dp = 0; cats.forEach(function(c){ if(!state.hidden[c.key]) dp += val(c.key,last); });
+    var bugTickets = state.hidden.bugs ? 0 : val('bugs', last);
+    var tiles = [
+      {n:dp, l:'Data points', d:d.periodLabel},
+      {n:d.calls, l:'Client Connect calls', d:d.periodLabel},
+      {n:bugTickets, l:'Bug tickets', d:d.periodLabel},
+      {n:d.quotes, l:'Customer quotes', d:d.periodLabel}
+    ];
+    document.getElementById('tiles').innerHTML = tiles.map(function(t){
+      return '<div class="tile"><div class="n">'+t.n+'</div><div class="l">'+t.l+'</div><div class="d">'+t.d+'</div></div>';
+    }).join('');
+  }
+
+  // controls
+  document.querySelectorAll('[data-view]').forEach(function(b){
+    b.addEventListener('click', function(){
+      state.view = b.dataset.view;
+      document.querySelectorAll('[data-view]').forEach(function(x){ x.setAttribute('aria-pressed', x===b?'true':'false'); });
+      render();
+    });
+  });
+  document.querySelectorAll('.src').forEach(function(b){
+    b.addEventListener('click', function(){
+      state.src = b.dataset.src;
+      document.querySelectorAll('.src').forEach(function(x){ x.setAttribute('aria-pressed', x===b?'true':'false'); });
+      render();
+    });
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
